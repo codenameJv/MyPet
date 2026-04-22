@@ -4,6 +4,8 @@ import '../models/pet_models.dart';
 import '../services/database_service.dart';
 import 'add_edit_pet_screen.dart';
 import 'pet_detail_screen.dart';
+import 'settings_screen.dart';
+import 'appointments_screen.dart';
 
 String _getGreeting() {
   final hour = DateTime.now().hour;
@@ -64,6 +66,7 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   final _dbService = DatabaseService();
   late Future<List<Pet>> _petsFuture;
+  String _searchQuery = '';
 
   @override
   void initState() {
@@ -83,6 +86,16 @@ class _HomeScreenState extends State<HomeScreen> {
       MaterialPageRoute(builder: (_) => const AddEditPetScreen()),
     );
     _refreshPets();
+  }
+
+  List<Pet> _filterPets(List<Pet> pets) {
+    if (_searchQuery.isEmpty) return pets;
+    final query = _searchQuery.toLowerCase();
+    return pets.where((pet) {
+      return pet.name.toLowerCase().contains(query) ||
+          pet.species.toLowerCase().contains(query) ||
+          pet.breed.toLowerCase().contains(query);
+    }).toList();
   }
 
   @override
@@ -124,7 +137,17 @@ class _HomeScreenState extends State<HomeScreen> {
       padding: const EdgeInsets.all(24),
       child: Column(
         children: [
-          _GreetingHeader(petCount: 0),
+          _GreetingHeader(
+            petCount: 0,
+            onSettings: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const SettingsScreen()),
+            ),
+            onAppointments: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const AppointmentsScreen()),
+            ),
+          ),
           const Spacer(),
           Container(
             width: 120,
@@ -165,11 +188,50 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildDashboard(BuildContext context, List<Pet> pets) {
     final speciesBreakdown = _getSpeciesBreakdown(pets);
+    final filteredPets = _filterPets(pets);
 
     return ListView(
       padding: const EdgeInsets.all(24),
       children: [
-        _GreetingHeader(petCount: pets.length),
+        _GreetingHeader(
+          petCount: pets.length,
+          onSettings: () async {
+            await Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const SettingsScreen()),
+            );
+            _refreshPets();
+          },
+          onAppointments: () async {
+            await Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const AppointmentsScreen()),
+            );
+            _refreshPets();
+          },
+        ),
+        const SizedBox(height: 16),
+        SearchBar(
+          hintText: 'Search pets...',
+          leading: const Icon(Icons.search),
+          trailing: _searchQuery.isNotEmpty
+              ? [
+                  IconButton(
+                    icon: const Icon(Icons.clear),
+                    onPressed: () {
+                      setState(() => _searchQuery = '');
+                    },
+                  )
+                ]
+              : null,
+          onChanged: (value) {
+            setState(() => _searchQuery = value);
+          },
+          elevation: WidgetStateProperty.all(0),
+          padding: WidgetStateProperty.all(
+            const EdgeInsets.symmetric(horizontal: 16),
+          ),
+        ),
         const SizedBox(height: 24),
         _StatsSection(
           totalPets: pets.length,
@@ -184,7 +246,19 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
         ),
         const SizedBox(height: 12),
-        ...pets.map((pet) => Padding(
+        if (filteredPets.isEmpty && _searchQuery.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 24),
+            child: Center(
+              child: Text(
+                'No pets match "$_searchQuery"',
+                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+              ),
+            ),
+          ),
+        ...filteredPets.map((pet) => Padding(
               padding: const EdgeInsets.only(bottom: 12),
               child: _PetCard(
                 pet: pet,
@@ -207,8 +281,14 @@ class _HomeScreenState extends State<HomeScreen> {
 
 class _GreetingHeader extends StatelessWidget {
   final int petCount;
+  final VoidCallback onSettings;
+  final VoidCallback onAppointments;
 
-  const _GreetingHeader({required this.petCount});
+  const _GreetingHeader({
+    required this.petCount,
+    required this.onSettings,
+    required this.onAppointments,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -239,17 +319,15 @@ class _GreetingHeader extends StatelessWidget {
             ],
           ),
         ),
-        Container(
-          width: 48,
-          height: 48,
-          decoration: BoxDecoration(
-            color: theme.colorScheme.primaryContainer,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Icon(
-            Icons.pets,
-            color: theme.colorScheme.onPrimaryContainer,
-          ),
+        IconButton(
+          onPressed: onAppointments,
+          icon: const Icon(Icons.calendar_month),
+          tooltip: 'Appointments',
+        ),
+        IconButton(
+          onPressed: onSettings,
+          icon: const Icon(Icons.settings),
+          tooltip: 'Settings',
         ),
       ],
     );
@@ -301,7 +379,8 @@ class _StatsSection extends StatelessWidget {
           children: speciesBreakdown.entries.map((entry) {
             return Chip(
               avatar: Icon(_speciesIcon(entry.key), size: 18),
-              label: Text('${entry.value} ${entry.key}${entry.value > 1 ? 's' : ''}'),
+              label: Text(
+                  '${entry.value} ${entry.key}${entry.value > 1 ? 's' : ''}'),
             );
           }).toList(),
         ),

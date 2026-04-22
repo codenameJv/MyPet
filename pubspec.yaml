@@ -39,6 +39,11 @@ dependencies:
   path: ^1.9.0
   intl: ^0.20.2
   image_picker: ^1.1.2
+  fl_chart: ^0.70.2
+  flutter_local_notifications: ^18.0.1
+  shared_preferences: ^2.3.4
+  url_launcher: ^6.3.1
+  timezone: ^0.10.1
 
 dev_dependencies:
   flutter_test:

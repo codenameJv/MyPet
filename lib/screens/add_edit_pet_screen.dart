@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import '../models/pet_models.dart';
+import '../models/weight_models.dart';
 import '../services/database_service.dart';
 
 class AddEditPetScreen extends StatefulWidget {
@@ -125,7 +126,12 @@ class _AddEditPetScreenState extends State<AddEditPetScreen> {
     if (_isEditing) {
       await _dbService.updatePet(pet);
     } else {
-      await _dbService.insertPet(pet);
+      final newId = await _dbService.insertPet(pet);
+      await _dbService.insertWeightEntry(WeightEntry(
+        petId: newId,
+        date: DateTime.now().toIso8601String(),
+        weight: pet.weight,
+      ));
     }
 
     if (mounted) Navigator.pop(context, true);
